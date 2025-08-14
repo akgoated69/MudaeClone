@@ -70,6 +70,7 @@ int main() {
 
     sql::mysql::MySQL_Driver *driver = sql::mysql::get_mysql_driver_instance();
     sql::Connection *con = driver->connect(std::getenv(DB_CONNECTION), std::getenv(DB_USER), std::getenv(DB_PASSWORD));
+    delete driver;
     
     // set up sql database connection
     con->setSchema(std::getenv(DB_NAME));
