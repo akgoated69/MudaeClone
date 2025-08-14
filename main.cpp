@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include <regex>
+#include <ctime>
 
 #include <dpp/dpp.h>
 #include <dpp/unicode_emoji.h>
@@ -86,6 +87,7 @@ int main() {
     // handles discord reaction detection, reused for all messages
     rolls_react* r = nullptr;
 
+
     // Refactor if poossible and figure out how lambdas work
     /* The event is fired when someone issues your commands */
     bot.on_slashcommand([&bot,&r,&con](const dpp::slashcommand_t& event) {
@@ -109,6 +111,7 @@ int main() {
             }
 
             //sends message 
+            setClaimTimeForUser(con,sender);
             event.reply(msg);
 
             // memory management
@@ -194,6 +197,12 @@ int main() {
             exit(0);
         }
 
+        if(checkForCommand(event,"getdatetime"))
+        {
+            bot.log(dpp::ll_info,"User requested date time");
+            event.reply(getCurrentDateTime(con));
+        }
+
     });
 
     // this whole section is what is responsible for the autofill of / commands
@@ -217,6 +226,8 @@ int main() {
             bot.global_command_create(dpp::slashcommand("exit","turns off bot",bot.me.id));
 
             bot.global_command_create(dpp::slashcommand("checkinventory","Check cards that belong to you",bot.me.id));
+
+            bot.global_command_create(dpp::slashcommand("getdatetime","returns date and time",bot.me.id));
         }
     });
 

@@ -1,11 +1,6 @@
 
 #include "sqllogic.h"
 
-const std::string gems = "gems";
-const std::string users = "users";
-const std::string user_id = "user_id";
-const std::string id = "id";
-
 
 // checks if a specific value for an unspecified table and column exist
 bool checkIfValueExists(sql::Connection* con,
@@ -21,6 +16,7 @@ bool checkIfValueExists(sql::Connection* con,
         pstmt->setString(1, value);
 
         std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+        pstmt.release();
         return res->next();
     }
     catch (sql::SQLException& e) {
@@ -31,11 +27,11 @@ bool checkIfValueExists(sql::Connection* con,
 
 // changes the value at a specified table and column using a key pair
 void changeSpecificValueSQL(sql::Connection* con,
-                            std::string& table,
-                            std::string& valueName,
-                            std::string& value,
-                            std::string& critereaName,
-                            std::string& critereaValue)  
+                            const std::string& table,
+                            const std::string& valueName,
+                            const std::string& value,
+                            const std::string& critereaName,
+                            const std::string& critereaValue)  
 {
     try
     {
@@ -43,7 +39,7 @@ void changeSpecificValueSQL(sql::Connection* con,
         sql::PreparedStatement *pstmt;
         pstmt = con -> prepareStatement("UPDATE " + table + " SET " + valueName + "= '" + value + "' WHERE " + critereaName + "=" + critereaValue + ";");
         pstmt -> executeUpdate();
-    delete pstmt;
+        delete pstmt;
     }
     catch(sql::SQLException &e)
     {
@@ -54,10 +50,10 @@ void changeSpecificValueSQL(sql::Connection* con,
 
 // checks if the value at a specific table and column are null using key pair to specify the row
 bool checkIfValueisNullSQL(sql::Connection *con,
-                            std::string& table, 
-                            std::string& primaryKey, 
-                            std::string& primaryKeyValue, 
-                            std::string& column)
+                            const std::string& table, 
+                            const std::string& primaryKey, 
+                            const std::string& primaryKeyValue, 
+                            const std::string& column)
 {
     try {
         std::cout<<"[SQL request]:"<<std::string("SELECT * FROM ") + table + std::string(" WHERE ") + primaryKey + std::string(" = ") + primaryKeyValue + std::string(" AND ") + column + std::string(" IS NULL;")<<std::endl;
@@ -66,6 +62,7 @@ bool checkIfValueisNullSQL(sql::Connection *con,
         );
 
         std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+        pstmt.release();
         return res->next();
     }
     catch (sql::SQLException& e) {
@@ -76,10 +73,10 @@ bool checkIfValueisNullSQL(sql::Connection *con,
 
 // returns a string value using a primary key ONLY WORKS FOR ONE VALUE
 std::string getSpecificValueWithPrimaryKey(sql::Connection *con,
-                            std::string& table, 
-                            std::string& primaryKey, 
-                            std::string& primaryKeyValue, 
-                            std::string& column)
+                            const std::string& table, 
+                            const std::string& primaryKey, 
+                            const std::string& primaryKeyValue, 
+                            const std::string& column)
 {
     try {
         std::cout<<"[SQL request]"<<std::string("SELECT ") + column + std::string(" FROM ") + table + std::string(" WHERE ") + primaryKey + std::string(" = ") + primaryKeyValue<<std::endl;
@@ -94,6 +91,7 @@ std::string getSpecificValueWithPrimaryKey(sql::Connection *con,
         {
             value = res->getString(column);
         }
+        pstmt.release();
 
         return value;
     }
@@ -105,10 +103,10 @@ std::string getSpecificValueWithPrimaryKey(sql::Connection *con,
 
 // returns multiple values from a primary key using a resultset
 sql::ResultSet* getMultipleValuesWithPrimaryKey(sql::Connection *con,
-                            std::string& table, 
-                            std::string& primaryKey, 
-                            std::string& primaryKeyValue, 
-                            std::string& column)
+                            const std::string& table, 
+                            const std::string& primaryKey, 
+                            const std::string& primaryKeyValue, 
+                            const std::string& column)
 {
     try
     {
@@ -118,6 +116,7 @@ sql::ResultSet* getMultipleValuesWithPrimaryKey(sql::Connection *con,
         );
 
         sql::ResultSet* res(pstmt->executeQuery());
+        pstmt.release();
         return res;
     }
     catch(const std::exception& e)
@@ -125,6 +124,40 @@ sql::ResultSet* getMultipleValuesWithPrimaryKey(sql::Connection *con,
         std::cerr << "[MySQL] Error: " << e.what() << std::endl;
         return nullptr;
     }
+}
+
+sql::ResultSet* getLargestValueFromTableAndColumnSQL(sql::Connection* con, const std::string& table, const std::string& column)
+{
+    try
+    {
+        std::cout<<"[SQL request] SELECT MAX(" + column + ") AS max_id FROM gems;"<<std::endl;
+        std::unique_ptr <sql::PreparedStatement> pstmt(con -> prepareStatement("SELECT MAX(" + column + ") AS max_id FROM " + table + ";"));
+        sql::ResultSet* res(pstmt -> executeQuery());
+        pstmt.release();
+        return res;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << "[MySQL] Error: " << e.what() << std::endl;
+        return nullptr;
+    }
+    
+}
+
+void insertOneValueIntoDb(sql::Connection* con, const std::string& table, const std::string& column, const std::string& value)
+{
+    try
+    {
+        std::cout<<"[SQL request]: "<<std::string("INSERT INTO " + table + " (" + column + ") VALUES(" + value +");")<<std::endl;
+        std::unique_ptr<sql::PreparedStatement> pstmt(con -> prepareStatement("INSERT INTO " + table + " (" + column + ") VALUES(" + value +");"));
+        pstmt -> execute();
+        pstmt.release();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << "[MySQL] Error: " << e.what() << std::endl;
+    }
+    
 }
 
 // turns a resultset of STRINGS into a string that contains all of them seperate by oxford commas
@@ -147,21 +180,27 @@ std::vector<int> resultSetToVectorInt(sql::ResultSet* res, std::string column)
 
     while(res->next())
     {
+        std::cout<<"Is the error in resultSetToVectorInt?"<<std::endl;
         values.push_back(res->getInt(column));
     }
 
     return values;
 }
 
+sql::ResultSet* createRandomSQLQuery(sql::Connection* con, const std::string& table)
+{
+    sql::Statement *stmt = con->createStatement();
+    std::cout<<std::string("[SQL request]: SELECT * FROM ") + table + std::string(" ORDER BY RAND( ) LIMIT 1;")<<std::endl;
+    sql::ResultSet *res = stmt->executeQuery(std::string("SELECT * FROM ") + table + std::string(" ORDER BY RAND( ) LIMIT 1;"));
+    delete stmt;
+    return res;
+}
 
 
 // queries a random card from database
-sql::ResultSet* createRandomSQLQueryGems(sql::Connection* con){
-    sql::Statement *stmt = con->createStatement();
-    std::cout<<"[SQL request]: SELECT * FROM gems ORDER BY RAND( ) LIMIT 1;"<<std::endl;
-    sql::ResultSet *res = stmt->executeQuery("SELECT * FROM gems ORDER BY RAND( ) LIMIT 1;");
-    delete stmt;
-    return res;
+sql::ResultSet* createRandomSQLQueryGems(sql::Connection* con)
+{
+    return createRandomSQLQuery(con,gems);
 }
 
 // converts a sql query result into a card object
@@ -170,29 +209,23 @@ Mudae::Card gemSQLResultToCard(sql::ResultSet* res)
     Mudae::Card tempCard;
     while (res->next())
     {
+        std::cout<<"Is the error in gemSQLResultToCard?"<<std::endl;
         tempCard.setCard(res->getInt("id"),res->getString("imgurLink"));
     } 
     return tempCard;
 }
 
 // makes an sql query for a specific card based on id number
-sql::ResultSet* makeSQLRequestForSpecificId(sql::Connection *con,std::string& id)
+sql::ResultSet* makeSQLRequestForSpecificId(sql::Connection *con,const std::string& cardId)
 {
-    sql::Statement *stmt = con->createStatement();
-    std::cout<<"[SQL request]: "<<std::string("SELECT * FROM gems WHERE id = ") + id + std::string(";")<<std::endl;
-    sql::ResultSet *res = stmt->executeQuery(std::string("SELECT * FROM gems WHERE id = ") + id + std::string(";"));
-    delete stmt;
-    return res;
+    const std::string all = "*";
+    return getMultipleValuesWithPrimaryKey(con,gems,id,cardId,all);
 }
 
 // makes an sql query to find the card with the largest id card (important for error handling)
 sql::ResultSet* makeSQLRequestForLargestId(sql::Connection *con)
 {
-    sql::Statement *stmt = con->createStatement();
-    std::cout<<"[SQL request]: SELECT MAX(id) AS lim FROM gems"<<std::endl;
-    sql::ResultSet *res = stmt->executeQuery("SELECT MAX(id) AS lim FROM gems;");
-    delete stmt;
-    return res;
+    return getLargestValueFromTableAndColumnSQL(con,gems,id);
 }
 
 
@@ -202,7 +235,7 @@ int sqlResultToInt(sql::ResultSet* res)
     int value{};
     while(res->next())
     {
-        value = res->getInt("lim");
+        value = res->getInt(1);
     }
     return value;
 }
@@ -213,14 +246,10 @@ int getMaxId(sql::Connection *con)
     return sqlResultToInt(makeSQLRequestForLargestId(con));
 }
 
-
 // uploads a card to a database given a link
 void uploadCardToDb(sql::Connection* con, std::string link)
 {
-    sql::Statement *stmt = con->createStatement();
-    std::cout<<"[SQL request]: "<<std::string("INSERT INTO gems (imgurLink) VALUES('" + link + std::string("');"))<<std::endl;
-    stmt->execute(std::string("INSERT INTO gems (imgurLink) VALUES('" + link + std::string("');")));
-    delete stmt; 
+    insertOneValueIntoDb(con,gems,imgurLink,link);
 }
 
 // checks if a user is in the database
@@ -232,62 +261,84 @@ bool checkIfUserInDB(sql::Connection* con, std::string userID)
 // uploads user ID into database
 void uploadUserID(sql::Connection* con, std::string userID)
 {
-    sql::Statement *stmt = con->createStatement();
-    std::cout<<"[SQL request]: "<<std::string("INSERT INTO users (user_id) VALUES('") + userID + std::string("');")<<std::endl;
-    stmt->execute(std::string("INSERT INTO users (user_id) VALUES('") + userID + std::string("');"));
-    delete stmt;
+    insertOneValueIntoDb(con,users,user_id,userID);
 }
 
 // checks if the card is claimed returns true if its not 
 bool checkIfCardClaimed(sql::Connection* con,std::string cardId)
 {
-    std::string table = "gems";
-    std::string primaryKey = "id";
-    std::string column = "user_id";
-    
-    return checkIfValueisNullSQL(con,table,primaryKey, cardId, column);
+    return checkIfValueisNullSQL(con,gems,id, cardId, user_id);
 }
 
 // assigns a card object a user_id
 void assignCardOwner(sql::Connection* con, std::string imageId, std::string owner)
 {
-    std::string userColumn = "user";
-    std::string user_id = "user_id";
-    std::string table = "gems";
-    std::string id = "id";
-    changeSpecificValueSQL(con, table, user_id, owner, id, imageId);
+    changeSpecificValueSQL(con, gems, user_id, owner, id, imageId);
 }
 
 // returns the user_id of a card
-std::string getCardOwner(sql::Connection* con, std::string id)
+std::string getCardOwner(sql::Connection* con, std::string cardID)
 {
-    std::string table = "gems";
-    std::string column = "user_id";
-    std::string primaryKey = "id";
     if(checkIfCardClaimed(con,id))
     {
         return "No owner";
     }
-    return getSpecificValueWithPrimaryKey(con,table,primaryKey,id,column);
+    return getSpecificValueWithPrimaryKey(con,gems,id,cardID,user_id);
 }
 
 // returns the id of each card belonging to a user in a vector
-std::vector<int> getAllCardBelongingToUser(sql::Connection *con, std::string user_id)
+std::vector<int> getAllCardBelongingToUser(sql::Connection *con, std::string userID)
 {
-    std::string table = "gems";
-    std::string primaryKey = "user_id"; 
-    std::string column = "id";
-    std::string value = std::string("'") + user_id + std::string("'");
-    return resultSetToVectorInt(getMultipleValuesWithPrimaryKey(con,table,primaryKey,value,column),column);
+    std::string value = std::string("'") + userID + std::string("'");
+    return resultSetToVectorInt(getMultipleValuesWithPrimaryKey(con,gems,user_id,value,id),id);
 }
 
 // checks if the user has any cards belonging to him 
-bool checkIfUserHasCards(sql::Connection *con, std::string user_id)
+bool checkIfUserHasCards(sql::Connection *con, std::string userId)
 {
-    std::string table = "gems";
-    std::string primaryKey = "user_id";
-    std::string id = "id";
-    std::string value = std::string("'") + user_id +  std::string("'");
-    return checkIfValueisNullSQL(con,table,primaryKey,value,id);
+    std::string value = std::string("'") + userId +  std::string("'");
+    return checkIfValueisNullSQL(con,gems,user_id,value,id);
+}
+
+sql::ResultSet* makeRequestForDateTime(sql::Connection* con)
+{
+    std::unique_ptr<sql::PreparedStatement> pstmt(con -> prepareStatement("SELECT NOW();"));
+    sql::ResultSet* res(pstmt->executeQuery());
+    pstmt.release();
+    return res;
+}
+
+std::string resultSetToDateTime(sql::ResultSet* res)
+{
+    std::string dateTime;
+    while(res -> next())
+    {
+        dateTime = res -> getString("NOW()");
+    }
+    return dateTime;
+}
+
+std::string getCurrentDateTime(sql::Connection *con)
+{
+    return resultSetToDateTime(makeRequestForDateTime(con));
+}
+
+void setSpecificValueStringSQL(sql::Connection* con, const std::string& table, const std::string& column, const std::string& value, const std::string& primaryKey, const std::string& primaryKeyValue)
+{
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con -> prepareStatement("UPDATE " + table + " SET " + column + " = '" + value +"' WHERE " + primaryKey + " = '" + primaryKeyValue + "';"));
+        pstmt -> execute();
+        pstmt.release();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << "[MySQL] Error: " << e.what() << std::endl;
+    }
+}
+
+void setClaimTimeForUser(sql::Connection *con, const std::string& userId)
+{
+    setSpecificValueStringSQL(con,users,last_claim,getCurrentDateTime(con),user_id,userId);
 }
 
